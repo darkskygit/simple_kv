@@ -1,0 +1,133 @@
+use super::*;
+use std::marker::PhantomData;
+use zbox::{Error as ZboxError, Repo, RepoOpener};
+
+pub struct ZboxKvBucket<K> {
+    db: Arc<RwLock<Repo>>,
+    scope: String,
+    _phantom: PhantomData<K>,
+}
+
+impl<K> ZboxKvBucket<K> {
+    pub fn new<S: ToString>(db: Arc<RwLock<Repo>>, scope: S) -> Self {
+        Self {
+            db,
+            scope: scope.to_string(),
+            _phantom: PhantomData,
+        }
+    }
+    fn get_path<S: ToString>(&self, prefix: S) -> PathBuf {
+        PathBuf::from(if self.scope.is_empty() {
+            format!("/{}/", self.scope)
+        } else {
+            "/".into()
+        })
+        .join(prefix.to_string())
+    }
+}
+
+impl<K: ToString> KVBucket<K, Vec<u8>, ZboxError> for ZboxKvBucket<K> {
+    fn exists(&self, k: K) -> bool {
+        let db = self.db.read().unwrap();
+        let path = self.get_path(k);
+        db.is_file(&path).unwrap_or(false)
+    }
+    fn get(&self, k: K) -> Option<Vec<u8>> {
+        let mut db = self.db.write().unwrap();
+        let path = self.get_path(k);
+        if db.is_file(&path).unwrap_or(false) {
+            db.open_file(&path)
+                .and_then(|mut file| {
+                    let mut buf = vec![];
+                    file.read_to_end(&mut buf)?;
+                    Ok(buf)
+                })
+                .ok()
+        } else {
+            None
+        }
+    }
+    fn insert(&self, k: K, mut v: Vec<u8>) -> Result<(), ZboxError> {
+        let mut db = self.db.write().unwrap();
+        let path = self.get_path(k);
+        if db.is_file(&path)? {
+            db.remove_file(&path)?;
+        }
+        db.create_file(&path)?.write_once(&mut v)?;
+        Ok(())
+    }
+    fn remove(&self, k: K) -> Result<(), ZboxError> {
+        let mut db = self.db.write().unwrap();
+        let path = self.get_path(k);
+        if db.is_file(&path)? {
+            db.remove_file(&path)?;
+        }
+        Ok(())
+    }
+    fn list(&self) -> Result<Vec<PathBuf>, ZboxError> {
+        let db = self.db.read().unwrap();
+        let prefix = self.get_path("");
+        Ok(db
+            .read_dir(&prefix)?
+            .iter()
+            .filter(|entry| entry.metadata().is_file())
+            .filter_map(|entry| {
+                entry
+                    .path()
+                    .strip_prefix(&prefix)
+                    .ok()
+                    .map(|path| path.into())
+            })
+            .collect())
+    }
+}
+
+pub struct ZboxKV {
+    db: Arc<RwLock<Repo>>,
+}
+
+impl ZboxKV {
+    pub fn new<N: ToString, P: ToString>(name: N, pass: P) -> Self {
+        Self {
+            db: Arc::new(RwLock::new(
+                RepoOpener::new()
+                    .create(true)
+                    .compress(true)
+                    .dedup_chunk(true)
+                    .open(&format!("sqlite://{}", name.to_string()), &pass.to_string())
+                    .expect("Fail to init database"),
+            )),
+        }
+    }
+}
+
+impl<S: ToString> KV<S, Vec<u8>, ZboxError, ZboxKvBucket<S>> for ZboxKV {
+    fn get_bucket(&self, name: S) -> ZboxKvBucket<S> {
+        ZboxKvBucket::new(self.db.clone(), name)
+    }
+}
+
+#[test]
+fn transform() -> Result<(), exitfailure::ExitFailure> {
+    use lazy_static::*;
+    use stopwatch::Stopwatch;
+    lazy_static! {
+        static ref DBNAME: &'static str = "old.db";
+        static ref DBPASS: &'static str = "test";
+    }
+    zbox::init_env();
+    let old = ZboxKV::new(*DBNAME, *DBPASS).get_bucket("");
+    let new = ZboxKV::new("new.db", "test").get_bucket("");
+    let sw = Stopwatch::start_new();
+    for item in old.list()? {
+        let file_sw = Stopwatch::start_new();
+        if let Some(data) = old.get(&get_path_string(&item)) {
+            new.insert(&get_path_string(&item), data)?;
+            println!("move: {}, {}ms", item.display(), file_sw.elapsed_ms());
+        } else {
+            println!("not exist: {}, {}ms", item.display(), file_sw.elapsed_ms());
+        }
+    }
+    println!("finash, {}ms", sw.elapsed_ms());
+    Ok(())
+}

@@ -1,0 +1,103 @@
+[package]
+name = "zbox"
+version = "0.9.1"
+authors = ["Bo Lu"]
+description = "ZboxFS is a zero-details, privacy-focused in-app file system."
+documentation = "https://docs.rs/zbox"
+homepage = "https://github.com/zboxfs/zbox"
+repository = "https://github.com/zboxfs/zbox"
+readme = "README.md"
+keywords = ["filesystem", "crypto", "security", "privacy", "storage"]
+categories = ["filesystem", "cryptography"]
+license = "Apache-2.0"
+build = "build.rs"
+
+# This feature will be enabled during the docs.rs build
+[package.metadata.docs.rs]
+features = ["docs-rs"]
+
+[badges]
+travis-ci = { repository = "zboxfs/zbox" }
+
+[lib]
+name = "zbox"
+crate-type = ["rlib", "cdylib", "staticlib"]
+
+[profile.release]
+lto = true
+opt-level = 's'
+
+[features]
+default = ["storage-mem"]
+
+# performance test compilation flag
+test-perf = ["storage-file"]
+
+# memory storage
+storage-mem = []
+
+# file storage
+storage-file = []
+
+# faulty storage for random io error test
+storage-faulty = ["storage-file"]
+
+# sqlite storage
+storage-sqlite = ["libsqlite3-sys"]
+
+# redis storage
+storage-redis = ["redis"]
+
+# zbox storage with faulty transport, for test only
+storage-zbox-faulty = ["storage-zbox"]
+
+# zbox storage with native transport
+storage-zbox-native = ["storage-zbox", "reqwest"]
+
+# zbox storage with android storage as local cache backend
+storage-zbox-android = ["storage-zbox"]
+
+# zbox storage base dependencies
+storage-zbox = ["http", "serde_json"]
+
+# build-in libsodium dependency
+libsodium-bundled = []
+
+# feature for documentation build on docs.rs
+docs-rs = []
+
+[dependencies]
+cfg-if = "0.1.10"
+env_logger = "0.7.1"
+log = "0.4.8"
+rmp-serde = "0.14.0"
+serde = "1.0.104"
+serde_derive = "1.0.104"
+lazy_static = "1.4.0"
+libsqlite3-sys = { version = "0.17.1", optional = true }
+redis = { version = "0.11.0", optional = true }
+http  = { version = "0.1.17", optional = true }
+serde_json = { version = "1.0.39", optional = true }
+reqwest = { version = "0.9.18", default-features = false, features = [ "rustls-tls" ], optional = true }
+
+[dependencies.linked-hash-map]
+version = "0.5.2"
+features = ["serde_impl"]
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.14.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { version = "0.2.50", features = ["serde-serialize"] }
+js-sys = { version = "0.3.27" }
+web-sys = { version = "0.3.27", features = [ "Crypto", "WorkerGlobalScope", "XmlHttpRequest", "XmlHttpRequestResponseType", "Blob"] }
+
+[dev-dependencies]
+bytes = "0.4.12"
+tempdir = "0.3.7"
+rand = "0.6.5"
+rand_xorshift = "0.1.1"
+
+[build-dependencies]
+pkg-config = "0.3.14"
+cc = "1.0.45"

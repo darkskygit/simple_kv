@@ -1,0 +1,37 @@
+[package]
+name = "kv"
+version = "0.1.0"
+authors = ["DarkSky"]
+edition = "2018"
+description = "out-of-box simple kv storage"
+include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
+license = "AGPL-3.0-or-later"
+homepage = "https://github.com/darkskygit/simple_kv"
+readme = "README.md"
+keywords = ["kv", "database"]
+repository = "https://github.com/darkskygit/simple_kv"
+
+[features]
+default = ["zbox_kv"]
+zbox_kv = ["libsqlite3-sys", "zbox"]
+
+[dependencies]
+
+[dependencies.libsqlite3-sys]
+version = "0.17.1"
+features = ["bundled", "min_sqlite_version_3_7_16"]
+optional = true
+
+[dependencies.zbox]
+version = "0.9.1"
+default-features = false
+features = ["storage-sqlite", "libsodium-bundled"]
+optional = true
+
+[patch.crates-io]
+zbox = { path = 'lib/zbox' }
+
+[dev-dependencies]
+exitfailure = "0.5.1"
+lazy_static = "1.4.0"
+stopwatch = "0.0.7"
