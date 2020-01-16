@@ -2,13 +2,13 @@ use super::*;
 use std::marker::PhantomData;
 use zbox::{Error as ZboxError, Repo, RepoOpener};
 
-pub struct ZboxKvBucket<K> {
+pub struct ZboxKVBucket<K> {
     db: Arc<RwLock<Repo>>,
     scope: String,
     _phantom: PhantomData<K>,
 }
 
-impl<K> ZboxKvBucket<K> {
+impl<K> ZboxKVBucket<K> {
     pub fn new<S: ToString>(db: Arc<RwLock<Repo>>, scope: S) -> Self {
         Self {
             db,
@@ -17,7 +17,7 @@ impl<K> ZboxKvBucket<K> {
         }
     }
     fn get_path<S: ToString>(&self, prefix: S) -> PathBuf {
-        PathBuf::from(if self.scope.is_empty() {
+        PathBuf::from(if !self.scope.is_empty() {
             format!("/{}/", self.scope)
         } else {
             "/".into()
@@ -26,7 +26,7 @@ impl<K> ZboxKvBucket<K> {
     }
 }
 
-impl<K: ToString> KVBucket<K, Vec<u8>, ZboxError> for ZboxKvBucket<K> {
+impl<K: ToString> KVBucket<K, Vec<u8>, ZboxError> for ZboxKVBucket<K> {
     fn exists(&self, k: K) -> bool {
         let db = self.db.read().unwrap();
         let path = self.get_path(k);
@@ -101,9 +101,9 @@ impl ZboxKV {
     }
 }
 
-impl<S: ToString> KV<S, Vec<u8>, ZboxError, ZboxKvBucket<S>> for ZboxKV {
-    fn get_bucket(&self, name: S) -> ZboxKvBucket<S> {
-        ZboxKvBucket::new(self.db.clone(), name)
+impl<S: ToString> KV<S, Vec<u8>, ZboxError, ZboxKVBucket<S>> for ZboxKV {
+    fn get_bucket(&self, name: S) -> ZboxKVBucket<S> {
+        ZboxKVBucket::new(self.db.clone(), name)
     }
 }
 
