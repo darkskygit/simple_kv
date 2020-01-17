@@ -6,38 +6,36 @@ pub use zbox::{Error as ZboxError, Repo};
 #[derive(Clone)]
 pub struct ZboxKVBucket<K> {
     db: Arc<RwLock<Repo>>,
-    scope: String,
+    scope: PathBuf,
     _phantom: PhantomData<K>,
 }
 
 impl<K> ZboxKVBucket<K> {
     pub fn new<S: ToString>(db: Arc<RwLock<Repo>>, scope: S) -> Result<Self, ZboxError> {
-        let bucket = Self {
+        let scope = Self::create_scope(db.clone(), scope.to_string())?;
+        Ok(Self {
             db,
-            scope: scope.to_string(),
+            scope,
             _phantom: PhantomData,
-        };
-        bucket.create_scope()?;
-        Ok(bucket)
+        })
     }
     fn get_path<S: ToString>(&self, prefix: S) -> PathBuf {
-        PathBuf::from(if !self.scope.is_empty() {
-            format!("/{}/", self.scope)
+        self.scope.join(prefix.to_string())
+    }
+    fn create_scope(db: Arc<RwLock<Repo>>, scope: String) -> Result<PathBuf, ZboxError> {
+        let mut db = db.write().unwrap();
+        let scope = PathBuf::from(if !scope.is_empty() {
+            format!("/{}/", scope)
         } else {
             "/".into()
-        })
-        .join(prefix.to_string())
-    }
-    fn create_scope(&self) -> Result<(), ZboxError> {
-        let mut db = self.db.write().unwrap();
-        let scope = self.get_path("");
+        });
         if !db.is_dir(&scope)? {
             if db.is_file(&scope)? {
                 db.remove_file(&scope)?
             }
             db.create_dir(&scope)?;
         }
-        Ok(())
+        Ok(scope)
     }
 }
 
