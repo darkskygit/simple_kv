@@ -66,7 +66,7 @@ impl<K: ToString> KVBucket<K, Vec<u8>, ZboxError> for ZboxKVBucket<K> {
         if db.is_file(&path)? {
             db.remove_file(&path)?;
         }
-        db.create_file(&path)?.write_once(&mut v)?;
+        db.create_file(&path)?.write_once(&v)?;
         Ok(())
     }
     fn remove(&self, k: K) -> Result<(), ZboxError> {
