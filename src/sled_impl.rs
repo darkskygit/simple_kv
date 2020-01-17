@@ -32,10 +32,10 @@ impl<K> SledKVBucket<K> {
 }
 
 impl<K: ToString> KVBucket<K, Vec<u8>, SledError> for SledKVBucket<K> {
-    fn exists(&self, k: K) -> bool {
+    fn exists(&self, k: K) -> Result<bool, SledError> {
         let db = self.db.read().unwrap();
         let path = self.get_path(k);
-        db.contains_key(&path).unwrap_or(false)
+        Ok(db.contains_key(&path)?)
     }
     fn get(&self, k: K) -> Option<Vec<u8>> {
         let db = self.db.read().unwrap();

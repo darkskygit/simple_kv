@@ -5,7 +5,7 @@ pub trait KV<K, V, E, B: KVBucket<K, V, E>> {
 }
 
 pub trait KVBucket<K, V, E> {
-    fn exists(&self, k: K) -> bool;
+    fn exists(&self, k: K) -> Result<bool, E>;
     fn get(&self, k: K) -> Option<V>;
     fn insert(&self, k: K, v: V) -> Result<(), E>;
     fn remove(&self, k: K) -> Result<(), E>;

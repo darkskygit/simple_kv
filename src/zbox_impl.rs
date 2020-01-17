@@ -1,7 +1,9 @@
 use super::*;
 use std::marker::PhantomData;
-use zbox::{Error as ZboxError, Repo, RepoOpener};
+use zbox::RepoOpener;
+pub use zbox::{Error as ZboxError, Repo};
 
+#[derive(Clone)]
 pub struct ZboxKVBucket<K> {
     db: Arc<RwLock<Repo>>,
     scope: String,
@@ -27,10 +29,10 @@ impl<K> ZboxKVBucket<K> {
 }
 
 impl<K: ToString> KVBucket<K, Vec<u8>, ZboxError> for ZboxKVBucket<K> {
-    fn exists(&self, k: K) -> bool {
+    fn exists(&self, k: K) -> Result<bool, ZboxError> {
         let db = self.db.read().unwrap();
         let path = self.get_path(k);
-        db.is_file(&path).unwrap_or(false)
+        Ok(db.is_file(&path)?)
     }
     fn get(&self, k: K) -> Option<Vec<u8>> {
         let mut db = self.db.write().unwrap();

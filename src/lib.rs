@@ -12,7 +12,7 @@ use std::sync::{Arc, RwLock};
 #[cfg(features = "sled_kv")]
 pub use sled_impl::{SledKV, SledKVBucket};
 #[cfg(features = "zbox_kv")]
-pub use zbox_impl::{ZboxKV, ZboxKVBucket};
+pub use zbox_impl::{Repo, ZboxError, ZboxKV, ZboxKVBucket};
 
 fn get_path_string<P: AsRef<Path>>(path: P) -> String {
     path.as_ref()
