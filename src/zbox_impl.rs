@@ -96,6 +96,7 @@ impl ZboxKV {
                     .create(true)
                     .compress(true)
                     .dedup_chunk(true)
+                    .force(true)
                     .open(&format!("sqlite://{}", name.to_string()), &pass.to_string())
                     .expect("Fail to init database"),
             )),
