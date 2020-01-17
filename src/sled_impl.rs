@@ -95,12 +95,13 @@ impl SledKV {
 }
 
 impl<S: ToString> KV<S, Vec<u8>, SledError, SledKVBucket<S>> for SledKV {
-    fn get_bucket(&self, name: S) -> SledKVBucket<S> {
-        SledKVBucket::new(self.db.clone(), name)
+    fn get_bucket(&self, name: S) -> Result<SledKVBucket<S>, SledError> {
+        Ok(SledKVBucket::new(self.db.clone(), name))
     }
 }
 
 #[test]
+#[cfg(feature = "sled_kv")]
 fn transform_sled() -> Result<(), exitfailure::ExitFailure> {
     use lazy_static::*;
     use stopwatch::Stopwatch;
@@ -109,8 +110,8 @@ fn transform_sled() -> Result<(), exitfailure::ExitFailure> {
         static ref DBPASS: &'static str = "test";
     }
     ::zbox::init_env();
-    let old = ZboxKV::new(*DBNAME, *DBPASS).get_bucket("");
-    let new = SledKV::new("new").get_bucket("");
+    let old = ZboxKV::new(*DBNAME, *DBPASS).get_bucket("")?;
+    let new = SledKV::new("new").get_bucket("")?;
     let sw = Stopwatch::start_new();
     for item in old.list()? {
         let file_sw = Stopwatch::start_new();

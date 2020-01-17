@@ -11,12 +11,14 @@ pub struct ZboxKVBucket<K> {
 }
 
 impl<K> ZboxKVBucket<K> {
-    pub fn new<S: ToString>(db: Arc<RwLock<Repo>>, scope: S) -> Self {
-        Self {
+    pub fn new<S: ToString>(db: Arc<RwLock<Repo>>, scope: S) -> Result<Self, ZboxError> {
+        let bucket = Self {
             db,
             scope: scope.to_string(),
             _phantom: PhantomData,
-        }
+        };
+        bucket.create_scope()?;
+        Ok(bucket)
     }
     fn get_path<S: ToString>(&self, prefix: S) -> PathBuf {
         PathBuf::from(if !self.scope.is_empty() {
@@ -25,6 +27,17 @@ impl<K> ZboxKVBucket<K> {
             "/".into()
         })
         .join(prefix.to_string())
+    }
+    fn create_scope(&self) -> Result<(), ZboxError> {
+        let mut db = self.db.write().unwrap();
+        let scope = self.get_path("");
+        if !db.is_dir(&scope)? {
+            if db.is_file(&scope)? {
+                db.remove_file(&scope)?
+            }
+            db.create_dir(&scope)?;
+        }
+        Ok(())
     }
 }
 
@@ -105,22 +118,23 @@ impl ZboxKV {
 }
 
 impl<S: ToString> KV<S, Vec<u8>, ZboxError, ZboxKVBucket<S>> for ZboxKV {
-    fn get_bucket(&self, name: S) -> ZboxKVBucket<S> {
+    fn get_bucket(&self, name: S) -> Result<ZboxKVBucket<S>, ZboxError> {
         ZboxKVBucket::new(self.db.clone(), name)
     }
 }
 
 #[test]
-fn transform() -> Result<(), exitfailure::ExitFailure> {
+#[cfg(feature = "zbox_kv")]
+fn transform_zbox() -> Result<(), exitfailure::ExitFailure> {
     use lazy_static::*;
     use stopwatch::Stopwatch;
     lazy_static! {
         static ref DBNAME: &'static str = "old.db";
         static ref DBPASS: &'static str = "test";
     }
-    zbox::init_env();
-    let old = ZboxKV::new(*DBNAME, *DBPASS).get_bucket("");
-    let new = ZboxKV::new("new.db", "test").get_bucket("");
+    ::zbox::init_env();
+    let old = ZboxKV::new(*DBNAME, *DBPASS).get_bucket("")?;
+    let new = ZboxKV::new("new.db", "test").get_bucket("")?;
     let sw = Stopwatch::start_new();
     for item in old.list()? {
         let file_sw = Stopwatch::start_new();

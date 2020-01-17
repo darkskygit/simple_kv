@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 pub trait KV<K, V, E, B: KVBucket<K, V, E>> {
-    fn get_bucket(&self, name: K) -> B;
+    fn get_bucket(&self, name: K) -> Result<B, E>;
 }
 
 pub trait KVBucket<K, V, E> {
