@@ -60,7 +60,7 @@ impl<K: ToString> KVBucket<K, Vec<u8>, ZboxError> for ZboxKVBucket<K> {
             None
         }
     }
-    fn insert(&self, k: K, mut v: Vec<u8>) -> Result<(), ZboxError> {
+    fn insert(&self, k: K, v: Vec<u8>) -> Result<(), ZboxError> {
         let mut db = self.db.write().unwrap();
         let path = self.get_path(k);
         if db.is_file(&path)? {
