@@ -1,17 +1,21 @@
+#[cfg(feature = "acid_kv")]
+mod acid_impl;
 mod kv;
-#[cfg(features = "sled_kv")]
+#[cfg(feature = "sled_kv")]
 mod sled_impl;
-#[cfg(features = "zbox_kv")]
+#[cfg(feature = "zbox_kv")]
 mod zbox_impl;
 
 use kv::{KVBucket, KV};
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
-#[cfg(features = "sled_kv")]
+#[cfg(feature = "acid_kv")]
+pub use acid_impl::{AcidError, AcidKV, AcidKVBucket};
+#[cfg(feature = "sled_kv")]
 pub use sled_impl::{SledKV, SledKVBucket};
-#[cfg(features = "zbox_kv")]
+#[cfg(feature = "zbox_kv")]
 pub use zbox_impl::{Repo, ZboxError, ZboxKV, ZboxKVBucket};
 
 fn get_path_string<P: AsRef<Path>>(path: P) -> String {

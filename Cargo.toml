@@ -12,11 +12,19 @@ keywords = ["kv", "database"]
 repository = "https://github.com/darkskygit/simple_kv"
 
 [features]
-default = ["sled_kv", "zbox_kv"]
+default = ["acid_kv", "sled_kv", "zbox_kv"]
+acid_kv = ["acid-store"]
 sled_kv = ["sled"]
 zbox_kv = ["libsqlite3-sys", "zbox"]
 
 [dependencies]
+rusqlite = "0.21.0"
+
+[dependencies.acid-store]
+version = "0.1.1"
+default-features = false
+features = ["store-sqlite"]
+optional = true
 
 [dependencies.libsqlite3-sys]
 version = "0.17.1"
