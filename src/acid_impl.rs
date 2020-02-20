@@ -7,8 +7,35 @@ use acid_store::{
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-type AcidDb = ObjectRepository<Vec<u8>, SqliteStore>;
+pub use acid_store::Error as AcidError;
 
+struct SyncSqliteStore(SqliteStore);
+
+unsafe impl Sync for SyncSqliteStore {}
+
+impl DataStore for SyncSqliteStore {
+    type Error = rusqlite::Error;
+
+    fn write_block(&mut self, id: Uuid, data: &[u8]) -> Result<(), Self::Error> {
+        self.0.write_block(id, data)
+    }
+
+    fn read_block(&mut self, id: Uuid) -> Result<Option<Vec<u8>>, Self::Error> {
+        self.0.read_block(id)
+    }
+
+    fn remove_block(&mut self, id: Uuid) -> Result<(), Self::Error> {
+        self.0.remove_block(id)
+    }
+
+    fn list_blocks(&mut self) -> Result<Vec<Uuid>, Self::Error> {
+        self.0.list_blocks()
+    }
+}
+
+type AcidDb = ObjectRepository<Vec<u8>, SyncSqliteStore>;
+
+#[derive(Clone)]
 pub struct AcidKVBucket<K> {
     db: Arc<RwLock<AcidDb>>,
     scope: String,
@@ -16,7 +43,7 @@ pub struct AcidKVBucket<K> {
 }
 
 impl<K> AcidKVBucket<K> {
-    pub fn new<S: ToString>(db: Arc<RwLock<AcidDb>>, scope: S) -> Self {
+    fn new<S: ToString>(db: Arc<RwLock<AcidDb>>, scope: S) -> Self {
         Self {
             db,
             scope: scope.to_string(),
@@ -98,7 +125,10 @@ impl AcidKV {
         use std::env::current_dir;
         Ok(Self {
             db: Arc::new(RwLock::new(ObjectRepository::create_repo(
-                SqliteStore::open(current_dir()?.join(name.to_string()), OpenOption::CREATE)?,
+                SyncSqliteStore(SqliteStore::open(
+                    current_dir()?.join(name.to_string()),
+                    OpenOption::CREATE,
+                )?),
                 RepositoryConfig {
                     chunker_bits: 20,
                     compression: Compression::Lzma { level: 9 },

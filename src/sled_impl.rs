@@ -101,8 +101,8 @@ impl<S: ToString> KV<S, Vec<u8>, SledError, SledKVBucket<S>> for SledKV {
 }
 
 #[test]
-#[cfg(feature = "sled_kv")]
-fn transform_sled() -> Result<(), exitfailure::ExitFailure> {
+#[cfg(all(feature = "zbox_kv", feature = "sled_kv"))]
+fn transform_zbox_to_sled() -> Result<(), exitfailure::ExitFailure> {
     use lazy_static::*;
     use stopwatch::Stopwatch;
     lazy_static! {
