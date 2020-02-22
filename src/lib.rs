@@ -6,13 +6,13 @@ mod sled_impl;
 #[cfg(feature = "zbox_kv")]
 mod zbox_impl;
 
-use kv::{KVBucket, KV};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 #[cfg(feature = "acid_kv")]
 pub use acid_impl::{AcidError, AcidKV, AcidKVBucket};
+pub use kv::{KVBucket, KV};
 #[cfg(feature = "sled_kv")]
 pub use sled_impl::{SledKV, SledKVBucket};
 #[cfg(feature = "zbox_kv")]
