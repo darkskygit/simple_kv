@@ -25,3 +25,10 @@ fn get_path_string<P: AsRef<Path>>(path: P) -> String {
         .into_string()
         .unwrap_or_default()
 }
+
+pub fn kv_init() {
+    #[cfg(feature = "acid_kv")]
+    acid_store::init();
+    #[cfg(all(not(feature = "acid_kv"), feature = "zbox_kv"))]
+    zbox::init_env();
+}
