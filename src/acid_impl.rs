@@ -1,6 +1,6 @@
 use super::*;
 use acid_store::{
-    repo::{Compression, Encryption, ObjectRepository, RepositoryConfig},
+    repo::{Compression, Encryption, LockStrategy, ObjectRepository, RepositoryConfig},
     store::{DataStore, Open, OpenOption, SqliteStore},
     uuid::Uuid,
 };
@@ -123,21 +123,29 @@ pub struct AcidKV {
 impl AcidKV {
     pub fn new<N: ToString>(name: N, pass: &[u8]) -> Result<Self, AcidError> {
         use std::env::current_dir;
-        Ok(Self {
-            db: Arc::new(RwLock::new(ObjectRepository::create_repo(
-                SyncSqliteStore(SqliteStore::open(
-                    current_dir()?.join(name.to_string()),
-                    OpenOption::CREATE,
-                )?),
-                RepositoryConfig {
-                    chunker_bits: 20,
-                    compression: Compression::Lzma { level: 9 },
-                    encryption: Encryption::XChaCha20Poly1305,
-                    ..Default::default()
-                },
-                Some(pass),
-            )?)),
-        })
+        let store = SyncSqliteStore(SqliteStore::open(
+            current_dir()?.join(name.to_string()),
+            OpenOption::CREATE,
+        )?);
+        let config = RepositoryConfig {
+            chunker_bits: 20,
+            compression: Compression::Lzma { level: 9 },
+            encryption: Encryption::XChaCha20Poly1305,
+            ..Default::default()
+        };
+        Ok(
+            ObjectRepository::create_repo(store.clone(), config.clone(), Some(pass))
+                .and_then(|repo| Self {
+                    db: Arc::new(RwLock::new(repo)),
+                })
+                .or_else(|e| {
+                    if e == AcidError::AlreadyExists {
+                        ObjectRepository::open_repo(store, Some(pass), LockStrategy::Abort)
+                    } else {
+                        Err(e)
+                    }
+                })?,
+        )
     }
 }
 
