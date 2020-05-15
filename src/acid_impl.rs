@@ -34,16 +34,18 @@ impl<D: DataStore> DataStore for SyncAcidStore<D> {
 }
 
 type AcidDb<D> = ObjectRepository<Vec<u8>, SyncAcidStore<D>>;
+type AcidSqliteDb = AcidDb<SqliteStore>;
+type AcidSyncDb = Arc<RwLock<AcidSqliteDb>>;
 
 #[derive(Clone)]
-pub struct AcidKVBucket<K, D: DataStore> {
-    db: Arc<RwLock<AcidDb<D>>>,
+pub struct AcidKVBucket<K> {
+    db: AcidSyncDb,
     scope: String,
     _phantom: PhantomData<K>,
 }
 
-impl<K, D: DataStore> AcidKVBucket<K, D> {
-    fn new<S: ToString>(db: Arc<RwLock<AcidDb<D>>>, scope: S) -> Self {
+impl<K> AcidKVBucket<K> {
+    fn new<S: ToString>(db: Arc<RwLock<AcidSqliteDb>>, scope: S) -> Self {
         Self {
             db,
             scope: scope.to_string(),
@@ -64,7 +66,7 @@ impl<K, D: DataStore> AcidKVBucket<K, D> {
     }
 }
 
-impl<K: ToString, D: DataStore> KVBucket<K, Vec<u8>, AcidError> for AcidKVBucket<K, D> {
+impl<K: ToString> KVBucket<K, Vec<u8>, AcidError> for AcidKVBucket<K> {
     fn exists(&self, k: K) -> Result<bool, AcidError> {
         let db = self.db.read().unwrap();
         let path = self.get_path(k);
@@ -116,11 +118,11 @@ impl<K: ToString, D: DataStore> KVBucket<K, Vec<u8>, AcidError> for AcidKVBucket
     }
 }
 
-pub struct AcidKV<D: DataStore> {
-    db: Arc<RwLock<AcidDb<D>>>,
+pub struct AcidKV {
+    db: AcidSyncDb,
 }
 
-impl AcidKV<SqliteStore> {
+impl AcidKV {
     fn get_store<S: ToString>(name: &S) -> Result<SyncAcidStore<SqliteStore>, AcidError> {
         use std::env::current_dir;
         Ok(SyncAcidStore(SqliteStore::open(
@@ -160,8 +162,8 @@ impl AcidKV<SqliteStore> {
     }
 }
 
-impl<S: ToString> KV<S, Vec<u8>, AcidError, AcidKVBucket<S, SqliteStore>> for AcidKV<SqliteStore> {
-    fn get_bucket(&self, name: S) -> Result<AcidKVBucket<S, SqliteStore>, AcidError> {
+impl<S: ToString> KV<S, Vec<u8>, AcidError, AcidKVBucket<S>> for AcidKV {
+    fn get_bucket(&self, name: S) -> Result<AcidKVBucket<S>, AcidError> {
         Ok(AcidKVBucket::new(self.db.clone(), name))
     }
 }
