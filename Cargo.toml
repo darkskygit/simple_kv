@@ -1,6 +1,6 @@
 [package]
 name = "kv"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["DarkSky"]
 edition = "2018"
 description = "out-of-box simple kv storage"
@@ -18,18 +18,18 @@ sled_kv = ["sled"]
 zbox_kv = ["libsqlite3-sys", "zbox"]
 
 [dependencies.acid-store]
-version = "0.1.1"
+version = "0.5.0"
 default-features = false
-features = ["store-sqlite"]
+features = ["compression", "encryption", "store-sqlite"]
 optional = true
 
 [dependencies.libsqlite3-sys]
-version = "0.17.1"
+version = "0.17.3"
 features = ["bundled", "min_sqlite_version_3_7_16"]
 optional = true
 
 [dependencies.rusqlite]
-version = "0.21.0"
+version = "0.22.0"
 features = ["bundled"]
 optional = true
 
@@ -49,4 +49,3 @@ zbox = { path = 'lib/zbox' }
 [dev-dependencies]
 exitfailure = "0.5.1"
 lazy_static = "1.4.0"
-stopwatch = "0.0.7"

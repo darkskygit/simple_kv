@@ -1,7 +1,7 @@
 use super::*;
 use acid_store::{
-    repo::{Compression, Encryption, LockStrategy, ObjectRepository, RepositoryConfig},
-    store::{DataStore, Open, OpenOption, SqliteStore},
+    repo::{Compression, Encryption, LockStrategy, ObjectRepository, OpenRepo, RepositoryConfig},
+    store::{DataStore, OpenOption, OpenStore, SqliteStore},
     uuid::Uuid,
 };
 use std::marker::PhantomData;
@@ -9,12 +9,12 @@ use std::str::FromStr;
 
 pub use acid_store::Error as AcidError;
 
-struct SyncSqliteStore(SqliteStore);
+struct SyncAcidStore<D: DataStore>(D);
 
-unsafe impl Sync for SyncSqliteStore {}
+unsafe impl<D: DataStore> Sync for SyncAcidStore<D> {}
 
-impl DataStore for SyncSqliteStore {
-    type Error = rusqlite::Error;
+impl<D: DataStore> DataStore for SyncAcidStore<D> {
+    type Error = D::Error;
 
     fn write_block(&mut self, id: Uuid, data: &[u8]) -> Result<(), Self::Error> {
         self.0.write_block(id, data)
@@ -33,17 +33,17 @@ impl DataStore for SyncSqliteStore {
     }
 }
 
-type AcidDb = ObjectRepository<Vec<u8>, SyncSqliteStore>;
+type AcidDb<D> = ObjectRepository<Vec<u8>, SyncAcidStore<D>>;
 
 #[derive(Clone)]
-pub struct AcidKVBucket<K> {
-    db: Arc<RwLock<AcidDb>>,
+pub struct AcidKVBucket<K, D: DataStore> {
+    db: Arc<RwLock<AcidDb<D>>>,
     scope: String,
     _phantom: PhantomData<K>,
 }
 
-impl<K> AcidKVBucket<K> {
-    fn new<S: ToString>(db: Arc<RwLock<AcidDb>>, scope: S) -> Self {
+impl<K, D: DataStore> AcidKVBucket<K, D> {
+    fn new<S: ToString>(db: Arc<RwLock<AcidDb<D>>>, scope: S) -> Self {
         Self {
             db,
             scope: scope.to_string(),
@@ -64,14 +64,14 @@ impl<K> AcidKVBucket<K> {
     }
 }
 
-impl<K: ToString> KVBucket<K, Vec<u8>, AcidError> for AcidKVBucket<K> {
+impl<K: ToString, D: DataStore> KVBucket<K, Vec<u8>, AcidError> for AcidKVBucket<K, D> {
     fn exists(&self, k: K) -> Result<bool, AcidError> {
         let db = self.db.read().unwrap();
         let path = self.get_path(k);
         Ok(db.contains(&path))
     }
     fn get(&self, k: K) -> Option<Vec<u8>> {
-        let mut db = self.db.write().unwrap();
+        let db = self.db.write().unwrap();
         let path = self.get_path(k);
         if db.contains(&path) {
             db.get(&path).and_then(|mut obj| {
@@ -116,41 +116,52 @@ impl<K: ToString> KVBucket<K, Vec<u8>, AcidError> for AcidKVBucket<K> {
     }
 }
 
-pub struct AcidKV {
-    db: Arc<RwLock<AcidDb>>,
+pub struct AcidKV<D: DataStore> {
+    db: Arc<RwLock<AcidDb<D>>>,
 }
 
-impl AcidKV {
-    pub fn new<N: ToString>(name: N, pass: &[u8]) -> Result<Self, AcidError> {
+impl AcidKV<SqliteStore> {
+    fn get_store<S: ToString>(name: &S) -> Result<SyncAcidStore<SqliteStore>, AcidError> {
         use std::env::current_dir;
-        let store = SyncSqliteStore(SqliteStore::open(
+        Ok(SyncAcidStore(SqliteStore::open(
             current_dir()?.join(name.to_string()),
             OpenOption::CREATE,
-        )?);
-        let config = RepositoryConfig {
-            chunker_bits: 20,
-            compression: Compression::Lzma { level: 9 },
-            encryption: Encryption::XChaCha20Poly1305,
-            ..Default::default()
-        };
-        Ok(
-            ObjectRepository::create_repo(store.clone(), config.clone(), Some(pass))
-                .and_then(|repo| Self {
-                    db: Arc::new(RwLock::new(repo)),
-                })
-                .or_else(|e| {
-                    if e == AcidError::AlreadyExists {
-                        ObjectRepository::open_repo(store, Some(pass), LockStrategy::Abort)
-                    } else {
-                        Err(e)
-                    }
-                })?,
+        )?))
+    }
+
+    fn get_config() -> RepositoryConfig {
+        let mut config = RepositoryConfig::default();
+        config.compression = Compression::Lzma { level: 9 };
+        config.encryption = Encryption::XChaCha20Poly1305;
+        config
+    }
+
+    pub fn new<N: ToString>(name: N, pass: &[u8]) -> Result<Self, AcidError> {
+        Ok(ObjectRepository::create_repo(
+            Self::get_store(&name)?,
+            Self::get_config(),
+            LockStrategy::Abort,
+            Some(pass),
         )
+        .map(|repo| Self {
+            db: Arc::new(RwLock::new(repo)),
+        })
+        .or_else(|e| match e {
+            AcidError::AlreadyExists => ObjectRepository::open_repo(
+                Self::get_store(&name)?,
+                LockStrategy::Abort,
+                Some(pass),
+            )
+            .map(|repo| Self {
+                db: Arc::new(RwLock::new(repo)),
+            }),
+            e => Err(e),
+        })?)
     }
 }
 
-impl<S: ToString> KV<S, Vec<u8>, AcidError, AcidKVBucket<S>> for AcidKV {
-    fn get_bucket(&self, name: S) -> Result<AcidKVBucket<S>, AcidError> {
+impl<S: ToString> KV<S, Vec<u8>, AcidError, AcidKVBucket<S, SqliteStore>> for AcidKV<SqliteStore> {
+    fn get_bucket(&self, name: S) -> Result<AcidKVBucket<S, SqliteStore>, AcidError> {
         Ok(AcidKVBucket::new(self.db.clone(), name))
     }
 }
@@ -159,7 +170,7 @@ impl<S: ToString> KV<S, Vec<u8>, AcidError, AcidKVBucket<S>> for AcidKV {
 #[cfg(all(feature = "zbox_kv", feature = "acid_kv"))]
 fn transform_zbox_to_acid() -> Result<(), exitfailure::ExitFailure> {
     use lazy_static::*;
-    use stopwatch::Stopwatch;
+    use std::time::Instant;
     lazy_static! {
         static ref DBNAME: &'static str = "old.db";
         static ref DBPASS: &'static str = "test";
@@ -167,27 +178,27 @@ fn transform_zbox_to_acid() -> Result<(), exitfailure::ExitFailure> {
     ::zbox::init_env();
     let old = ZboxKV::new(*DBNAME, *DBPASS).get_bucket("")?;
     let new = AcidKV::new("acid.db", DBPASS.as_bytes())?.get_bucket("")?;
-    let sw = Stopwatch::start_new();
+    let sw = Instant::now();
     for item in old.list()? {
-        let decode_sw = Stopwatch::start_new();
+        let decode_sw = Instant::now();
         if let Some(data) = old.get(&get_path_string(&item)) {
-            let decode_ms = decode_sw.elapsed_ms();
-            let encode_sw = Stopwatch::start_new();
+            let decode_ms = decode_sw.elapsed().as_millis();
+            let encode_sw = Instant::now();
             new.insert(&get_path_string(&item), data)?;
             println!(
                 "move: {}, decode: {}ms, encode: {}ms",
                 item.display(),
                 decode_ms,
-                encode_sw.elapsed_ms()
+                encode_sw.elapsed().as_millis()
             );
         } else {
             println!(
                 "not exist: {}, {}ms",
                 item.display(),
-                decode_sw.elapsed_ms()
+                decode_sw.elapsed().as_millis()
             );
         }
     }
-    println!("finash, {}ms", sw.elapsed_ms());
+    println!("finash, {}ms", sw.elapsed().as_millis());
     Ok(())
 }

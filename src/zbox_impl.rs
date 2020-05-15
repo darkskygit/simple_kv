@@ -125,7 +125,7 @@ impl<S: ToString> KV<S, Vec<u8>, ZboxError, ZboxKVBucket<S>> for ZboxKV {
 #[cfg(feature = "zbox_kv")]
 fn transform_zbox() -> Result<(), exitfailure::ExitFailure> {
     use lazy_static::*;
-    use stopwatch::Stopwatch;
+    use std::time::Instant;
     lazy_static! {
         static ref DBNAME: &'static str = "old.db";
         static ref DBPASS: &'static str = "test";
@@ -133,16 +133,20 @@ fn transform_zbox() -> Result<(), exitfailure::ExitFailure> {
     ::zbox::init_env();
     let old = ZboxKV::new(*DBNAME, *DBPASS).get_bucket("")?;
     let new = ZboxKV::new("new.db", "test").get_bucket("")?;
-    let sw = Stopwatch::start_new();
+    let sw = Instant::now();
     for item in old.list()? {
-        let file_sw = Stopwatch::start_new();
+        let file_sw = Instant::now();
         if let Some(data) = old.get(&get_path_string(&item)) {
             new.insert(&get_path_string(&item), data)?;
-            println!("move: {}, {}ms", item.display(), file_sw.elapsed_ms());
+            println!(
+                "move: {}, {}ms",
+                item.display(),
+                file_sw.elapsed().as_millis()
+            );
         } else {
-            println!("not exist: {}, {}ms", item.display(), file_sw.elapsed_ms());
+            println!("not exist: {}, {}ms", item.display(), file_sw.elapsed());
         }
     }
-    println!("finash, {}ms", sw.elapsed_ms());
+    println!("finash, {}ms", sw.elapsed().as_millis());
     Ok(())
 }
