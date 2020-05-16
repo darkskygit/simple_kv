@@ -170,7 +170,7 @@ impl<S: ToString> KV<S, Vec<u8>, AcidError, AcidKVBucket<S>> for AcidKV {
 
 #[test]
 #[cfg(all(feature = "zbox_kv", feature = "acid_kv"))]
-fn transform_zbox_to_acid() -> Result<(), exitfailure::ExitFailure> {
+pub fn transform_zbox_to_acid() -> Result<(), anyhow::Error> {
     use lazy_static::*;
     use std::time::Instant;
     lazy_static! {
@@ -178,8 +178,8 @@ fn transform_zbox_to_acid() -> Result<(), exitfailure::ExitFailure> {
         static ref DBPASS: &'static str = "test";
     }
     ::zbox::init_env();
-    let old = ZboxKV::new(*DBNAME, *DBPASS).get_bucket("")?;
-    let new = AcidKV::new("acid.db", DBPASS.as_bytes())?.get_bucket("")?;
+    let new = ZboxKV::new(*DBNAME, *DBPASS).get_bucket("")?;
+    let old = AcidKV::new("acid.db", "yw4CyoTt#M8dnen@".as_bytes())?.get_bucket("")?;
     let sw = Instant::now();
     for item in old.list()? {
         let decode_sw = Instant::now();

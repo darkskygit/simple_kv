@@ -123,7 +123,7 @@ impl<S: ToString> KV<S, Vec<u8>, ZboxError, ZboxKVBucket<S>> for ZboxKV {
 
 #[test]
 #[cfg(feature = "zbox_kv")]
-fn transform_zbox() -> Result<(), exitfailure::ExitFailure> {
+fn transform_zbox() -> Result<(), anyhow::Error> {
     use lazy_static::*;
     use std::time::Instant;
     lazy_static! {
@@ -144,7 +144,11 @@ fn transform_zbox() -> Result<(), exitfailure::ExitFailure> {
                 file_sw.elapsed().as_millis()
             );
         } else {
-            println!("not exist: {}, {}ms", item.display(), file_sw.elapsed());
+            println!(
+                "not exist: {}, {}ms",
+                item.display(),
+                file_sw.elapsed().as_millis()
+            );
         }
     }
     println!("finash, {}ms", sw.elapsed().as_millis());

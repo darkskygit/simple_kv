@@ -13,7 +13,7 @@ repository = "https://github.com/darkskygit/simple_kv"
 
 [features]
 default = []
-acid_kv = ["acid-store", "rusqlite"]
+acid_kv = ["acid-store"]
 sled_kv = ["sled"]
 zbox_kv = ["libsqlite3-sys", "zbox"]
 
@@ -26,11 +26,6 @@ optional = true
 [dependencies.libsqlite3-sys]
 version = "0.17.3"
 features = ["bundled", "min_sqlite_version_3_7_16"]
-optional = true
-
-[dependencies.rusqlite]
-version = "0.22.0"
-features = ["bundled"]
 optional = true
 
 [dependencies.sled]
@@ -47,5 +42,5 @@ optional = true
 zbox = { path = 'lib/zbox' }
 
 [dev-dependencies]
-exitfailure = "0.5.1"
+anyhow = "1.0.31"
 lazy_static = "1.4.0"
