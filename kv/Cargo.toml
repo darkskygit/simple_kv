@@ -1,0 +1,43 @@
+[package]
+name = "kv"
+version = "0.1.1"
+authors = ["DarkSky"]
+edition = "2018"
+description = "out-of-box simple kv storage"
+include = ["src/**/*", "lib/**/*", "Cargo.toml", "README.md", "LICENSE"]
+license = "AGPL-3.0-or-later"
+homepage = "https://github.com/darkskygit/simple_kv"
+readme = "README.md"
+keywords = ["kv", "database"]
+repository = "https://github.com/darkskygit/simple_kv"
+
+[features]
+default = ["acid_kv", "zbox_kv"]
+acid_kv = ["acid-store"]
+sled_kv = ["sled"]
+zbox_kv = ["libsqlite3-sys", "zbox"]
+
+[dependencies.acid-store]
+version = "0.11.0"
+default-features = false
+features = ["compression", "encryption", "store-sqlite"]
+optional = true
+
+[dependencies.libsqlite3-sys]
+version = "0.22.2"
+features = ["bundled", "min_sqlite_version_3_7_16"]
+optional = true
+
+[dependencies.sled]
+version = "0.34.7"
+optional = true
+
+[dependencies.zbox]
+version = "0.9.1"
+default-features = false
+features = ["storage-sqlite", "libsodium-bundled"]
+optional = true
+
+[dev-dependencies]
+anyhow = "1.0.31"
+lazy_static = "1.4.0"
