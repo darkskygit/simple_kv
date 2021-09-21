@@ -1,0 +1,97 @@
+[package]
+name = "acid-store"
+version = "0.11.0"
+authors = ["Wren Powell <wrentpowell@gmail.com>"]
+edition = "2018"
+description = "A library for secure, deduplicated, transactional, and verifiable data storage"
+homepage = "https://github.com/lostatc/acid-store"
+repository = "https://github.com/lostatc/acid-store"
+documentation = "https://docs.rs/acid-store"
+readme = "README.md"
+keywords = ["storage", "filesystem", "data", "transactional", "security"]
+categories = ["filesystem", "encoding", "cryptography"]
+license = "Apache-2.0"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+# File system
+relative-path = { version = "1.0.0", features = ["ci"] }
+walkdir = "2.2.9"
+fs2 = "0.4.3"
+dirs = "2.0.2"
+filetime = { version = "0.2.8", optional = true }
+
+# I/O
+cdchunking = "1.0.0"
+
+# SQL
+rusqlite = { version = "0.25.3", features = ["bundled"], optional = true }
+
+# Redis
+redis = { version = "0.15.1", optional = true }
+
+# Amazon S3
+rust-s3 =  { version = "0.18.11", optional = true }
+
+# Hashing
+digest = "0.8.1"
+blake2 = "0.8.1"
+sha2 = "0.8.1"
+sha3 = "0.8.2"
+
+# Error handling
+thiserror = "1.0.9"
+anyhow = "1.0.26"
+
+# Compression
+flate2 = { version = "1.0.13", optional = true }
+xz2 = { version = "0.1.6", optional = true }
+lz4 = { version = "1.23.1", optional = true }
+
+# Encryption
+sodiumoxide = {version = "0.2.5", optional = true }
+zeroize = { version = "1.1.0", features = ["zeroize_derive"] }
+rand = { version = "0.7.2", optional = true }
+
+# Serialization
+serde = { version = "1.0.103", features = ["derive"] }
+rmp = "0.8.8"
+rmp-serde = "0.14.0"
+
+# Misc
+uuid = { version = "0.8.1", features = ["serde", "v4"] }
+lazy_static = "1.4.0"
+weak-table = "0.2.3"
+bitflags = "1.2.1"
+tempfile = { version = "3.1.0", optional = true }
+
+# Unix-specific dependencies
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.17.0", optional = true }
+xattr = { version = "0.2.2", optional = true }
+
+[dev-dependencies]
+rand = { version = "0.7.2", features = ["small_rng"] }
+tempfile = "3.1.0"
+serial_test = "0.4.0"
+dotenv = "0.15.0"
+criterion = "0.3.1"
+bytesize = "1.0.0"
+
+[features]
+default = ["store-directory"]
+
+store-directory = []
+store-sqlite = ["rusqlite"]
+store-redis = ["redis"]
+store-s3 = ["rust-s3"]
+store-rclone = ["tempfile", "nix"]
+file-metadata = ["nix", "filetime", "xattr"]
+compression = ["flate2", "xz2", "lz4"]
+encryption = ["sodiumoxide", "rand"]
+
+[[bench]]
+name = "io"
+harness = false

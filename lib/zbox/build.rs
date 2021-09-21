@@ -206,11 +206,17 @@ fn download_and_install_libsodium() {
 fn download_and_install_libsodium() {
     use std::fs::copy;
     let lib_name = "libsodium.lib";
+    let pdb_name = "libsodium.pdb";
     let proj_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     copy(
         proj_dir.join("vendor").join(lib_name),
         out_dir.join(lib_name),
+    )
+    .unwrap();
+    copy(
+        proj_dir.join("vendor").join(lib_name),
+        out_dir.join(pdb_name),
     )
     .unwrap();
     env::set_var("SODIUM_LIB_DIR", &out_dir);

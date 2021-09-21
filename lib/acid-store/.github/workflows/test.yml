@@ -1,0 +1,19 @@
+name: Tests
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Start Redis
+        uses: zhulik/redis-action@1.1.0
+      - name: Build
+        run: cargo build --all-features
+      - name: Run tests
+        env:
+          REDIS_URL: redis://localhost:6379
+        run: cargo test --verbose --features 'store-directory store-sqlite store-redis file-metadata encryption compression'
